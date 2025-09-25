@@ -1,58 +1,81 @@
-const { Item } = require("../models");
+const db = require("../config/db");
 
-// Get all items
+// ✅ Get all items
 exports.getItems = async (req, res) => {
   try {
-    const items = await Item.findAll();
-    res.json(items);
+    const [rows] = await db.execute("SELECT * FROM items ORDER BY createdAt DESC");
+    res.json(rows);
   } catch (err) {
-    res.status(500).json({ message: "Error fetching items", error: err.message });
+    console.error("Error fetching items:", err);
+    res.status(500).json({ message: "Error fetching items" });
   }
 };
 
-// Create item
+// ✅ Create item
 exports.createItem = async (req, res) => {
   try {
-    const item = await Item.create(req.body);
-    res.status(201).json(item);
+    const { name, sku, rate, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Item name is required" });
+    }
+
+    const [result] = await db.execute(
+      "INSERT INTO items (name, sku, rate, description, createdAt, updatedAt) VALUES (?, ?, ?, ?, NOW(), NOW())",
+      [name, sku || null, rate || 0, description || null]
+    );
+
+    res.status(201).json({ message: "Item created", id: result.insertId });
   } catch (err) {
-    res.status(400).json({ message: "Error creating item", error: err.message });
+    console.error("Error creating item:", err);
+    res.status(400).json({ message: "Error creating item" });
   }
 };
 
-// Get single item
+// ✅ Get single item by ID
 exports.getItem = async (req, res) => {
   try {
-    const item = await Item.findByPk(req.params.id);
-    if (!item) return res.status(404).json({ message: "Item not found" });
-    res.json(item);
+    const [rows] = await db.execute("SELECT * FROM items WHERE id = ?", [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ message: "Item not found" });
+
+    res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ message: "Error fetching item", error: err.message });
+    console.error("Error fetching item:", err);
+    res.status(500).json({ message: "Error fetching item" });
   }
 };
 
-// Update item
+// ✅ Update item
 exports.updateItem = async (req, res) => {
   try {
-    const item = await Item.findByPk(req.params.id);
-    if (!item) return res.status(404).json({ message: "Item not found" });
+    const [rows] = await db.execute("SELECT * FROM items WHERE id = ?", [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ message: "Item not found" });
 
-    await item.update(req.body);
-    res.json(item);
+    const { name, sku, rate, description } = req.body;
+
+    await db.execute(
+      "UPDATE items SET name=?, sku=?, rate=?, description=?, updatedAt=NOW() WHERE id=?",
+      [name, sku, rate, description, req.params.id]
+    );
+
+    res.json({ message: "Item updated" });
   } catch (err) {
-    res.status(400).json({ message: "Error updating item", error: err.message });
+    console.error("Error updating item:", err);
+    res.status(400).json({ message: "Error updating item" });
   }
 };
 
-// Delete item
+// ✅ Delete item
 exports.deleteItem = async (req, res) => {
   try {
-    const item = await Item.findByPk(req.params.id);
-    if (!item) return res.status(404).json({ message: "Item not found" });
+    const [rows] = await db.execute("SELECT * FROM items WHERE id = ?", [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ message: "Item not found" });
 
-    await item.destroy();
+    await db.execute("DELETE FROM items WHERE id = ?", [req.params.id]);
+
     res.json({ message: "Item deleted" });
   } catch (err) {
-    res.status(500).json({ message: "Error deleting item", error: err.message });
+    console.error("Error deleting item:", err);
+    res.status(500).json({ message: "Error deleting item" });
   }
 };
